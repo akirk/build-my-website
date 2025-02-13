@@ -13,6 +13,8 @@ class ChatGPT_Agency_Plugin {
 		add_action('template_include', array( $this, 'load_fullscreen_template' ) );
 		add_action('wp_ajax_upload_files', array( $this, 'upload_files' ) );
 		add_action('wp_ajax_get_gutenberg_patterns', array( $this, 'get_gutenberg_patterns' ) );
+		add_action('wp_ajax_wp_insert_post', array( $this, 'wp_insert_post' ) );
+		add_action('admin_bar_menu', array( $this, 'add_to_admin_bar' ), 1000);
 	}
 
 	public function load_fullscreen_template($template) {
@@ -21,6 +23,18 @@ class ChatGPT_Agency_Plugin {
 			return dirname(__FILE__) . '/chat.php';
 		}
 		return $template;
+	}
+
+	public function add_to_admin_bar($wp_admin_bar) {
+		$wp_admin_bar->add_node(array(
+			'id' => 'build-my-website',
+			'title' => 'Build my Website',
+			'href' => site_url('/build/'),
+		));
+		if ( '/build/' === $_SERVER['REQUEST_URI'] ) {
+			$wp_admin_bar->remove_node('comments');
+			$wp_admin_bar->remove_node('new-content');
+		}
 	}
 
 	public function upload_files() {
@@ -62,11 +76,31 @@ class ChatGPT_Agency_Plugin {
 	}
 	public function get_gutenberg_patterns() {
 		$theme = $_GET['theme'];
+
 		$theme = wp_get_theme( $theme );
-		return $theme->get_block_patterns();
-
-
+		$patterns = array();
+		foreach ( $theme->get_block_patterns() as $slug => $pattern ) {
+			ob_start();
+			require $theme->get_stylesheet_directory() . '/patterns/' . $slug;
+			$patterns[ $slug ] = ob_get_clean();
+		}
+		return $patterns;
 	}
+
+	public function wp_insert_post() {
+		$post = array(
+			'post_title' => $_POST['post_title'],
+			'post_content' => $_POST['post_content'],
+			'post_status' => 'publish',
+			'post_type' => $_POST['post_type'],
+		);
+		$post_id = wp_insert_post($post);
+		if ($post_id) {
+			wp_send_json_success($post_id);
+		}
+		wp_send_json_error();
+	}
+
 }
 
 new ChatGPT_Agency_Plugin();

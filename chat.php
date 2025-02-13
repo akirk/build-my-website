@@ -1,17 +1,23 @@
-<!DOCTYPE html>
-<html>
-	<head><title></title></head>
-<body id="website-container">
-	<h1>Let's build a website!</h1>
-	<ul id="chat-area">
-	</ul>
-	<textarea id="user-input" placeholder="Type your message here..."></textarea>
-	<button id="send-message">Send</button>
+<?php wp_head(); ?>
+<h1>Let's build a website!</h1>
+<ul id="chat-area">
+</ul>
+<textarea id="user-input" placeholder="Type your message here..."></textarea>
+<button id="send-message">Send</button>
+<div id="debug-div">
+	<div id="current-request"></div>
+	<button id="restart">Start from scratch</button>
+</div>
+
 <script>
 // JavaScript for handling chat functionality and OpenAI API interaction
 const chatArea = document.getElementById('chat-area');
 const userInput = document.getElementById('user-input');
 const sendMessageButton = document.getElementById('send-message');
+const debugDiv = document.getElementById('debug-div');
+const restartButton = document.getElementById('restart');
+const currentRequestDiv = document.getElementById('current-request');
+
 let apiKey = "<?php echo esc_attr( get_option('OPENAI_API_KEY') ); ?>";
 if ( ! apiKey ) {
 	apiKey = prompt("Please enter your OpenAI API key:");
@@ -36,89 +42,77 @@ foreach (get_posts(['post_type' => 'attachment', 'posts_per_page' => -1]) as $at
 
 }
 ?>
-const messages = [
-// 	{
-// 		role: 'system',
-// 		content: "You are an AI that helps a user to build their website. For this you need to ask them about the topic of their website and gather all necessary information, such as which pages should be created. Please also inquire all meta information that is needed such as name, and potentially address. If the user doesn't give it to you after you ask them, please come back to it later so that you have it before the conversation is ended. The user has the option to drag documents and images to this window, so please in the course of the conversation prompt them to do that. You're not involved with choosing a domain or address for the site.",
-// 	}
-// ];
-// [
-  {
-    "role": "system",
-    "content": "You are an AI that helps a user to build their website. For this you need to ask them about the topic of their website and gather all necessary information, such as which pages should be created. Please also inquire all meta information that is needed such as name, and potentially address. If the user doesn't give it to you after you ask them, please come back to it later so that you have it before the conversation is ended. The user has the option to drag documents and images to this window, so please in the course of the conversation prompt them to do that. You're not involved with choosing a domain or address for the site."
-  },
-  {
-    "role": "assistant",
-    "content": "Hi there! I've been tasked to help you with creating a website. Could you tell me a little bit about you and what you'd like to achieve with this website?"
-  },
-  {
-    "role": "user",
-    "content": "im a tennis player\n"
-  },
-  {
-    "role": "assistant",
-    "content": "That's great to hear! Are you looking to create a website to showcase your skills, promote your services, share news and updates, or something else related to your tennis career?"
-  },
-  {
-    "role": "user",
-    "content": "yes\n"
-  },
-  {
-    "role": "assistant",
-    "content": "That's awesome! To get started, could you let me know what specific pages or sections you would like to have on your website? For example, do you want a homepage, an about me section, a services or coaching section, a gallery for your photos or videos, a contact page, or any other specific pages in mind?"
-  },
-  {
-    "role": "user",
-    "content": "no sounds good\n"
-  },
-  {
-    "role": "assistant",
-    "content": "Great! Let's outline the basic pages for your tennis website:\n\n1. Homepage: A welcoming page that introduces visitors to your website.\n2. About Me: A section where you can share information about yourself, your tennis journey, achievements, and goals.\n3. Services/Coaching: Details about the services you offer, such as tennis coaching, training sessions, etc.\n4. Gallery: A place to showcase photos and videos related to your tennis career.\n5. Contact: Information on how visitors can get in touch with you.\n\nDo these pages align with what you have in mind for your website?"
-  },
-  {
-    "role": "user",
-    "content": "yes\n"
-  },
-  {
-    "role": "assistant",
-    "content": "Awesome! In addition to the pages, we also need some basic information for your website. Could you please provide me with the following details:\n\n1. Website Name: Do you have a name in mind for your website?\n2. Your Name: The name you would like to display on the website.\n3. Contact Information: This could include an email address or any other contact details you want to share.\n4. Address (optional): If you want to display a physical address on your website, please provide it.\n\nOnce you provide this information, we can move forward with creating your tennis website."
-  },
-  {
-    "role": "user",
-    "content": "alex kirk\n"
-  },
-  {
-    "role": "assistant",
-    "content": "Thank you for providing your name, Alex Kirk. Could you please let me know if you have a specific name in mind for your website or if you'd like to use your name as the website's title? Additionally, if you have an email address or any other contact information you'd like to include on the website, please share that as well."
-  },
-  {
-    "role": "user",
-    "content": "just my name\n"
-  },
-  {
-    "role": "assistant",
-    "content": "Great choice! We'll use your name, \"Alex Kirk,\" as the website title. If you have any specific email address or contact information you'd like to share on the website, please provide that information. \n\nOnce we have the necessary details, we can proceed with creating your tennis website."
-  },
-  {
-    "role": "user",
-    "content": "i dont want to give my email address or contact information just yet\n"
-  },
-  {
-    "role": "assistant",
-    "content": "No problem at all, Alex. We can proceed with creating your tennis website without including your contact information for now. \n\nI will start setting up the basic structure of your website with the pages we discussed. Let's begin by choosing a theme for your website. Would you like to see some options for website themes before we finalize the design?"
-  }
-];
+let messages;
+try {
+messages = JSON.parse( localStorage.getItem( 'build-messages') || '[]' ) || [];
+} catch (e) {
+	messages = [];
+}
+function convertFromMarkdownToHTML( markdown ) {
+	// Split into lines for processing
+	const lines = markdown.split('\n');
+	let html = '';
+	let inList = false;
+	let listTag = '';
+
+	lines.forEach(line => {
+		// Trim whitespace from the line
+		line = line.trim();
+
+		if (/^-\s/.test(line)) { // Check for unordered list
+			if (!inList) {
+				html += '<ul>'; // Start unordered list
+				inList = true;
+			}
+			html += `<li>${line.substring(2)}</li>`; // Add list item
+			listTag = 'ul';
+		} else if (/^\d+\.\s/.test(line)) { // Check for ordered list
+			if (!inList || listTag !== 'ol') {
+				if (inList) html += `</${listTag}>`; // Close previous list
+				html += '<ol>'; // Start ordered list
+				inList = true;
+			}
+			html += `<li>${line.substring(line.indexOf('.') + 2)}</li>`; // Add list item
+			listTag = 'ol';
+		} else {
+			// If we were in a list, close the list
+			if (inList) {
+				html += `</${listTag}>`;
+				inList = false;
+			}
+			// Append line to html
+			if (line) html += `<p>${line}</p>`;
+		}
+	});
+
+	// Close any remaining list tag at the end
+	if (inList) {
+		html += `</${listTag}>`;
+	}
+	// Convert images
+	html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img alt="$1" src="$2" />');
+	// Convert bold text
+	html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+	html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
+	// Convert italic text
+	html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+	html = html.replace(/_(.*?)_/g, '<em>$1</em>');
+
+	return html.trim(); // Trim any extra whitespace before returning
+}
 
 function appendMessage(message, sender, replay = false) {
-
+	if ( ! message ) {
+		return;
+	}
 	const listItem = document.createElement('li');
 	switch ( sender ) {
 		case 'assistant':
-			listItem.textContent = 'AI: ' + message;
+			listItem.innerHTML = convertFromMarkdownToHTML( message );
 			listItem.className = 'assistant';
 			break;
 		case 'user':
-			listItem.textContent = 'User: ' + message;
+			listItem.textContent = 'You: ' + message;
 			listItem.className = 'user';
 			break;
 		case 'notice':
@@ -128,29 +122,55 @@ function appendMessage(message, sender, replay = false) {
 			break;
 	}
 	chatArea.appendChild(listItem);
-	chatArea.scrollTop = chatArea.scrollHeight;
+	setTimeout(function(){chatArea.scrollTop = chatArea.scrollHeight;},1);
 	if ( sender === 'notice' || replay) {
 		return;
 	}
 	messages.push({ role: sender, content: message });
-
+	localStorage.setItem( 'build-messages', JSON.stringify( messages ) );
 	if ( sender === 'user') {
 		fetchOpenAIResponse();
 	}
 }
 
-
 if ( messages.length > 1 ) {
+	// strip away tool requests and responses from the end
+	while ( messages.length > 0 && ( messages[messages.length - 1].tool_calls || messages[messages.length - 1].role === 'tool' ) ) {
+		messages.pop();
+	}
 	messages.forEach(message => {
 		appendMessage(message.content, message.role, true);
 	});
+	if ( messages[messages.length - 1].role === 'user' ) {
+		fetchOpenAIResponse();
+	}
+
 } else {
+	messages.push({
+		role: 'system',
+		content: "You are an AI that helps a user to build their website. For this you need to ask them about the topic of their website and gather all necessary information, such as which pages should be created. Please also inquire all meta information that is needed such as name, and potentially address. If the user doesn't give it to you after you ask them, please come back to it later so that you have it before the conversation is ended. The user has the option to drag documents and images to this window, so please in the course of the conversation prompt them to do that. You're not involved with choosing a domain or address for the site.",
+	} );
 	// Start conversation
-	appendMessage("Hi there! I've been tasked to help you with creating a website. Could you tell me a little bit about you and what you'd like to achieve with this website?", 'assistant');
+	appendMessage( "Hi there! I've been tasked to help you with creating a website. Could you tell me a little bit about you and what you'd like to achieve with this website?", 'assistant' );
 }
 userInput.addEventListener('keyup', function(event) {
 	if (event.key === 'Enter') {
 		sendMessageButton.click();
+	}
+});
+
+restartButton.addEventListener('click', function() {
+	localStorage.removeItem('build-messages');
+	location.reload();
+});
+
+document.addEventListener('click', function( e ) {
+	const li = e.target.closest('li');
+	if ( li && e.shiftKey ) {
+		const index = Array.from( li.parentNode.children ).indexOf( e.target );
+		messages.splice( index, 1 );
+		localStorage.setItem( 'build-messages', JSON.stringify( messages ) );
+		li.remove();
 	}
 });
 
@@ -164,7 +184,7 @@ sendMessageButton.addEventListener('click', function() {
 userInput.focus();
 
 // Handle file drop
-const dropArea = document.getElementById('website-container');
+const dropArea = document.documentElement;
 
 dropArea.addEventListener('dragover', function(event) {
 	event.preventDefault(); // Prevent default to allow drop
@@ -207,7 +227,7 @@ function handleFileUpload(files) {
 
 	}
 
-	fetch('wp-admin/admin-ajax.php?action=upload_files', {
+	fetch('/wp-admin/admin-ajax.php?action=upload_files', {
 		method: 'POST',
 		body: formData,
 	})
@@ -225,6 +245,106 @@ function handleFileUpload(files) {
 		console.error('Error uploading files:', error);
 		appendMessage('Error uploading files, please try again later.', 'notice');
 	});
+}
+
+async function processResponse( data ) {
+	let args, response, ajaxdata;
+
+	if (data.choices && data.choices.length > 0) {
+		currentRequestDiv.textContent = 'Received: ' + data.choices[0].message.content || 'Tool call requests';
+
+
+		if ( data.choices[0].message.tool_calls ) {
+			messages.push(data.choices[0].message);
+			for ( let i = 0; i < data.choices[0].message.tool_calls.length; i ++) {
+				const toolCall = data.choices[0].message.tool_calls[i];
+				switch (toolCall.function.name) {
+				case 'list_attachments':
+					messages.push({
+						role: 'tool',
+						tool_call_id: toolCall.id,
+						content: JSON.stringify( fileUploads ),
+					});
+					return fetchOpenAIResponse();
+				case 'get_attachment':
+					args = JSON.parse(toolCall.function.arguments);
+					const attachment = fileUploads.find(file => file.name === args.filename);
+
+					if (attachment) {
+						messages.push({
+							role: 'tool',
+							tool_call_id: toolCall.id,
+							content: attachment,
+						});
+					} else {
+						messages.push({
+							role: 'tool',
+							tool_call_id: toolCall.id,
+							content: 'Attachment not found',
+						});
+					}
+					break;
+				case 'get_available_themes_with_thumbnails':
+					messages.push({
+						role: 'tool',
+						tool_call_id: toolCall.id,
+						content: JSON.stringify(<?php
+							$themes = array();
+							foreach ( wp_get_themes() as $slug => $theme ) {
+								$theme_screenshot = $theme->get_screenshot();
+								$theme_name = $theme->get( 'Name' );
+								if ( empty( $theme->get_block_patterns() ) || ! $theme_screenshot || false !== strpos( $theme_name, 'WordPress.org' ) ) {
+									continue;
+								}
+								$themes[] = [
+									'slug' => $slug,
+									'name' => $theme_name,
+									'screenshot' => $theme_screenshot,
+								];
+							}
+							echo json_encode($themes);
+							?>),
+					});
+					break;
+				case 'get_available_gutenberg_patterns':
+					args = JSON.parse(toolCall.function.arguments);
+					response = await fetch('/wp-admin/admin-ajax.php?action=get_gutenberg_patterns&theme=' + args.theme);
+					ajaxdata = await response.json();
+					messages.push({
+						role: 'tool',
+						tool_call_id: toolCall.id,
+						content: JSON.stringify(ajaxdata),
+					});
+					break;
+				case 'wp_insert_post':
+					args = JSON.parse(toolCall.function.arguments);
+					let formData = new FormData();
+					for ( let j in args ) {
+						formData.append(j, args[j])
+					}
+					response = await fetch(
+						'/wp-admin/admin-ajax.php?action=wp_insert_post',
+					 {
+							method: 'POST',
+							body: formData
+						});
+					ajaxdata = await response.json();
+					messages.push({
+						role: 'tool',
+						tool_call_id: toolCall.id,
+						content: JSON.stringify(ajaxdata),
+					});
+					break;
+				}
+			}
+			return fetchOpenAIResponse();
+		} else {
+			const aiMessage = data.choices[0].message.content;
+			appendMessage(aiMessage, 'assistant');
+		}
+	} else {
+		appendMessage('Sorry, I didn\'t understand that.', 'notice');
+	}
 }
 
 function fetchOpenAIResponse() {
@@ -270,14 +390,41 @@ function fetchOpenAIResponse() {
 					properties: {
 						theme: {
 							type: 'string',
-							description: 'The theme to get patterns for.'
+							description: 'The theme slug to get patterns for.'
 						}
 					},
 					required: ['theme']
 				}
 			}
+		},
+		{
+			type: 'function',
+			function: {
+				name: 'wp_insert_post',
+				description: 'Create a WordPress post',
+				parameters:{
+					type: "object",
+					properties: {
+						post_title: {
+							type: 'string',
+							description: 'Post title'
+						},
+						post_content: {
+							type: 'string',
+							description: 'Post Content'
+						},
+						post_type: {
+							type: 'string',
+							description: 'Post Type'
+						}
+					}
+				}
+			},
 		}
 	];
+	currentRequestDiv.textContent = 'Sending: ' + ( messages[messages.length - 1].content || 'Tool call responses ' +messages[messages.length - 1].tool_call_id );
+
+
 	fetch('https://api.openai.com/v1/chat/completions', {
 		method: 'POST',
 		headers: {
@@ -285,81 +432,13 @@ function fetchOpenAIResponse() {
 			'Authorization': `Bearer ${apiKey}`
 		},
 		body: JSON.stringify({
-			model: 'gpt-3.5-turbo',
+			model: 'gpt-4o',
 			messages,
 			tools
 		}),
 	})
 	.then(response => response.json())
-	.then(data => {
-		if (data.choices && data.choices.length > 0) {
-			if ( data.choices[0].message.tool_calls ) {
-				data.choices[0].message.tool_calls.forEach(toolCall => {
-					switch (toolCall.function.name) {
-						case 'list_attachments':
-							messages.push({
-								role: 'tool',
-								tool_call_id: toolCall.id,
-								content: fileUploads,
-							});
-							return fetchOpenAIResponse();
-						case 'get_attachment':
-							const filename = toolCall.arguments.filename;
-							const attachment = fileUploads.find(file => file.name === filename);
-
-							if (attachment) {
-								messages.push({
-									role: 'tool',
-									tool_call_id: toolCall.id,
-									content: attachment,
-								});
-							} else {
-								messages.push({
-									role: 'tool',
-									tool_call_id: toolCall.id,
-									content: 'Attachment not found',
-								});
-							}
-							return fetchOpenAIResponse();
-						case 'get_available_themes_with_thumbnails':
-							messages.push({
-								role: 'tool',
-								tool_call_id: toolCall.id,
-								content: <?php
-								$themes = array();
-								foreach ( wp_get_themes() as $theme ) {
-									$theme_data = $theme->get( 'Name' );
-									$theme_screenshot = $theme->get_screenshot();
-									$themes[] = [
-										'name' => $theme_data,
-										'screenshot' => $theme_screenshot,
-									];
-								}
-								echo json_encode($themes);
-								?>,
-							});
-							return fetchOpenAIResponse();
-						case 'get_available_gutenberg_patterns':
-							fetch('wp-admin/admin-ajax.php?action=get_gutenberg_patterns&theme=' + toolCall.arguments.theme).then(response => response.json()).then(data => {
-								messages.push({
-									role: 'tool',
-									tool_call_id: toolCall.id,
-									content: data,
-								});
-								return fetchOpenAIResponse();
-							});
-							break;
-					}
-				});
-			}
-
-
-			const aiMessage = data.choices[0].message.content;
-			appendMessage(aiMessage, 'assistant');
-		} else {
-			appendMessage('Sorry, I didn\'t understand that.', 'notice');
-		}
-	})
+	.then(processResponse)
 	.catch(error => {
 		console.error('Error communicating with OpenAI:', error);
 		appendMessage('Error communicating with the AI, please try again later.', 'notice');
@@ -369,9 +448,6 @@ function fetchOpenAIResponse() {
 <style>
 	body {
 		font-family: Arial, sans-serif;
-
-	}
-	#website-container {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -394,6 +470,9 @@ function fetchOpenAIResponse() {
 	#chat-area li {
 		margin-bottom: .5em;
 	}
+	#chat-area li strong {
+		font-weight: bold;
+	}
 	#chat-area li.assistant {
 		color: #333;
 	}
@@ -403,16 +482,31 @@ function fetchOpenAIResponse() {
 	#chat-area li.notice {
 		color: #999;
 	}
-
+	#chat-area li img {
+		max-width: 30%;
+	}
 
 	#user-input {
 		width: 300px;
 		height: 50px;
 	}
-
+	#debug-div {
+		position: absolute;
+		bottom: .5em;
+		width: calc(100% - 1em);
+		display: flex;
+		justify-content: space-between;
+	}
+	#current-request {
+		font-size: 12px;
+		height: 1.5em;
+		max-width: 80%;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		overflow: hidden;
+	}
 	button {
 		cursor: pointer;
 	}
 </style>
-</body>
-</html>
+<?php wp_footer(); ?>
