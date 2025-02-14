@@ -42,7 +42,7 @@ foreach (get_posts(['post_type' => 'attachment', 'posts_per_page' => -1]) as $at
 	if ( 'text/plain' === $attachment->post_mime_type ) {
 		$file_contents = file_get_contents(get_attached_file($attachment->ID));
 	} else {
-		$file_contents = 'data:' . $attachment->post_mime_type . ';base64,' . base64_encode(file_get_contents(get_attached_file($attachment->ID)));
+		$file_contents = 'image';
 	}
 	echo json_encode([
 		'id' => $attachment->ID,
@@ -209,7 +209,7 @@ function appendMessage(message, sender, replay = false) {
 			break;
 	}
 	chatArea.appendChild(listItem);
-	setTimeout(function(){document.body.scrollTop = document.body.scrollHeight;},1);
+	setTimeout(function(){document.body.scrollTop = document.body.scrollHeight;},20);
 	if ( sender === 'notice' || replay) {
 		return;
 	}
@@ -234,7 +234,7 @@ if ( messages.length > 1 ) {
 } else {
 	messages.push({
 		role: 'system',
-		content: "You are an AI that helps a user to build their website. For this you need to ask them about the topic of their website and gather all necessary information, such as which pages should be created. Please also inquire all meta information that is needed such as name, and potentially address. If the user doesn't give it to you after you ask them, please come back to it later so that you have it before the conversation is ended. The user has the option to drag documents and images to this window, so please in the course of the conversation prompt them to do that. You're not involved with choosing a domain or address for the site but for linking you can just use a relative URL to this domain's root.",
+		content: "You are an AI that helps a user to build their website. For this you need to ask them about the topic of their website and gather all necessary information, such as which pages should be created. Please also inquire all meta information that is needed such as name, and potentially address. If the user doesn't give it to you after you ask them, please come back to it later so that you have it before the conversation is ended. The user has the option to drag documents and images to this window, so please in the course of the conversation prompt them to do that. You're not involved with choosing a domain or address for the site but for linking you can just use a relative URL to this domain's root. Please use Gutenberg blocks and use their html for creating the pages but dont show the html to the user just create their pages.",
 	} );
 	// Start conversation
 	appendMessage( "Hi there! I've been tasked to help you with creating a website. Could you tell me a little bit about you and what you'd like to achieve with this website?", 'assistant' );
@@ -302,7 +302,11 @@ function handleFileUpload(files) {
 		if ( files[i].type === 'text/plain' ) {
 			reader.readAsText(files[i]);
 		} else {
-			reader.readAsDataURL(files[i]);
+			fileUploads.push({
+				name: files[i].name,
+				type: files[i].type,
+				contents: 'unknown'
+			});
 		}
 	}
 
@@ -314,6 +318,14 @@ function handleFileUpload(files) {
 	.then(data => {
 		if (data.success) {
 			const message = 'I dragged the following files to this chat: ' + Array.from(files).map(file => file.name).join(', ');
+			data.data.forEach( file => {
+				const attachment = fileUploads.find( f => f.name === file.name );
+				if ( attachment ) {
+					attachment.id = file.id;
+					attachment.url = file.url;
+				}
+			});
+
 			appendMessage('Files uploaded successfully!', 'notice');
 			appendMessage(message, 'user');
 		} else {
@@ -388,6 +400,16 @@ async function processResponse( data ) {
 				case 'get_available_gutenberg_patterns':
 					args = JSON.parse(toolCall.function.arguments);
 					response = await fetch('/wp-admin/admin-ajax.php?action=get_gutenberg_patterns&theme=' + args.theme);
+					ajaxdata = await response.json();
+					messages.push({
+						role: 'tool',
+						tool_call_id: toolCall.id,
+						content: JSON.stringify(ajaxdata.data),
+					});
+					break;
+				case 'get_gutenberg_pattern_html':
+					args = JSON.parse(toolCall.function.arguments);
+					response = await fetch('/wp-admin/admin-ajax.php?action=get_gutenberg_pattern_html&slug=' + args.slug + '&theme=' + args.theme);
 					ajaxdata = await response.json();
 					messages.push({
 						role: 'tool',
@@ -473,6 +495,27 @@ function fetchOpenAIResponse() {
 						}
 					},
 					required: ['theme']
+				}
+			}
+		},
+		{
+			type: 'function',
+			function: {
+				name: 'get_gutenberg_pattern_html',
+				description: 'Get the html for an Gutenberg pattern.',
+				parameters:{
+					type: "object",
+					properties: {
+						theme: {
+							type: 'string',
+							description: 'The theme slug.'
+						},
+						slug: {
+							type: 'string',
+							description: 'The pattern slug.'
+						}
+					},
+					required: ['theme','slug']
 				}
 			}
 		},

@@ -13,7 +13,9 @@ class ChatGPT_Agency_Plugin {
 		add_action('template_include', array( $this, 'load_fullscreen_template' ) );
 		add_action('wp_ajax_upload_files', array( $this, 'upload_files' ) );
 		add_action('wp_ajax_get_gutenberg_patterns', array( $this, 'get_gutenberg_patterns' ) );
+		add_action('wp_ajax_get_gutenberg_pattern_html', array( $this, 'get_gutenberg_pattern_html' ) );
 		add_action('wp_ajax_wp_insert_post', array( $this, 'wp_insert_post' ) );
+		add_action('wp_ajax_switch_theme', array( $this, 'switch_theme' ) );
 		add_action('wp_ajax_set_openai_key', array( $this, 'set_openai_key' ) );
 		add_action('admin_bar_menu', array( $this, 'add_to_admin_bar' ), 1000);
 	}
@@ -53,6 +55,7 @@ class ChatGPT_Agency_Plugin {
 	}
 
 	public function upload_files() {
+		$attachments = array();
 		if (!empty($_FILES['files'])) {
 			foreach ($_FILES['files']['name'] as $key => $value) {
 				if ($_FILES['files']['error'][$key] === UPLOAD_ERR_OK) {
@@ -82,10 +85,17 @@ class ChatGPT_Agency_Plugin {
 						require_once(ABSPATH . 'wp-admin/includes/image.php');
 						$attach_data = wp_generate_attachment_metadata($attach_id, $filename);
 						wp_update_attachment_metadata($attach_id, $attach_data);
+						$attachments[] = [
+							'id' => $attach_id,
+							'url' => $upload_id['url'],
+							'type' => $attachment['post_mime_type'],
+							'name' => $attachment['post_title'],
+						];
 					}
 				}
 			}
-			wp_send_json_success();
+			wp_send_json_success( $attachments );
+
 		}
 		wp_send_json_error();
 	}
@@ -95,6 +105,22 @@ class ChatGPT_Agency_Plugin {
 		$theme = wp_get_theme( $theme );
 		$patterns = array();
 		foreach ( $theme->get_block_patterns() as $slug => $pattern ) {
+			$pattern['slug'] = $slug;
+			$patterns[] = $pattern;
+		}
+		wp_send_json_success($patterns);
+	}
+
+	public function get_gutenberg_pattern_html() {
+		$theme = $_GET['theme'];
+
+		$theme = wp_get_theme( $theme );
+		$patterns = array();
+		foreach ( $theme->get_block_patterns() as $slug => $pattern ) {
+			if ( $slug !== $_GET['slug'] ) {
+				continue;
+			}
+
 			ob_start();
 			require $theme->get_stylesheet_directory() . '/patterns/' . $slug;
 			$patterns[ $slug ] = ob_get_clean();
@@ -119,6 +145,11 @@ class ChatGPT_Agency_Plugin {
 		update_option('OPENAI_API_KEY', $_POST['openai_key']);
 		wp_send_json_success();
 	}
+	public function switch_theme() {
+		switch_theme($_POST['theme']);
+		wp_send_json_success();
+	}
+
 
 }
 
