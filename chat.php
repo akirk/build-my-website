@@ -1,4 +1,10 @@
+<html>
+<head>
 <?php wp_head(); ?>
+
+</head>
+<body>
+
 <h1>Let's build a website!</h1>
 <ul id="chat-area">
 </ul>
@@ -175,7 +181,7 @@ sendMessageButton.addEventListener('click', function() {
 userInput.focus();
 
 // Handle file drop
-const dropArea = document.documentElement;
+const dropArea = document.body;
 
 dropArea.addEventListener('dragover', function(event) {
 	event.preventDefault(); // Prevent default to allow drop
@@ -185,7 +191,6 @@ dropArea.addEventListener('dragover', function(event) {
 dropArea.addEventListener('drop', function(event) {
 	event.preventDefault();
 	event.stopPropagation();
-
 	const files = event.dataTransfer.files;
 	if (files.length > 0) {
 		handleFileUpload(files);
@@ -197,17 +202,10 @@ function handleFileUpload(files) {
 	for (let i = 0; i < files.length; i++) {
 		formData.append('files[]', files[i]);
 		const reader = new FileReader();
-			reader.onload = (function(file) {
-				return function(e) {
-					// Display the file content
-					resultDiv.innerHTML += `<p><strong>${file.name}:</strong> ${e.target.result}</p>`;
-				};
-			})(file);
-
-			let contents = reader.readAsText(file); // Read file as text
+			let contents = reader.readAsText(files[i]); // Read file as text
 			// If the files are images, you can use readAsDataURL
-			if (file.type.match('image.*')) {
-				contents = reader.readAsDataURL(file);
+			if (files[i].type.match('image.*')) {
+				// contents = reader.readAsDataURL(files[i]);
 			}
 
 		fileUploads.push({
@@ -265,7 +263,7 @@ async function processResponse( data ) {
 						messages.push({
 							role: 'tool',
 							tool_call_id: toolCall.id,
-							content: attachment,
+							content: JSON.stringify(attachment),
 						});
 					} else {
 						messages.push({
@@ -500,3 +498,4 @@ function fetchOpenAIResponse() {
 	}
 </style>
 <?php wp_footer(); ?>
+</html>

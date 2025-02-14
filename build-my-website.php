@@ -26,6 +26,13 @@ class ChatGPT_Agency_Plugin {
 			$wp_query->is_page = true;
 			$wp_query->is_singular = true;
 			$wp_query->set('pagename', 'build');
+			global $post;
+			$post = new WP_Post( (object) array(
+				'ID' => 1,
+				'post_title' => 'Build my Website',
+				'post_content' => '',
+			) );
+			$wp_query->queried_object = $post;
 
 			return dirname(__FILE__) . '/chat.php';
 		}
