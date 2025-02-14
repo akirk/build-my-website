@@ -14,6 +14,7 @@ class ChatGPT_Agency_Plugin {
 		add_action('wp_ajax_upload_files', array( $this, 'upload_files' ) );
 		add_action('wp_ajax_get_gutenberg_patterns', array( $this, 'get_gutenberg_patterns' ) );
 		add_action('wp_ajax_wp_insert_post', array( $this, 'wp_insert_post' ) );
+		add_action('wp_ajax_set_openai_key', array( $this, 'set_openai_key' ) );
 		add_action('admin_bar_menu', array( $this, 'add_to_admin_bar' ), 1000);
 	}
 
@@ -113,6 +114,10 @@ class ChatGPT_Agency_Plugin {
 			wp_send_json_success($post_id);
 		}
 		wp_send_json_error();
+	}
+	public function set_openai_key() {
+		update_option('OPENAI_API_KEY', $_POST['openai_key']);
+		wp_send_json_success();
 	}
 
 }

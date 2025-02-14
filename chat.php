@@ -26,6 +26,12 @@ const currentRequestDiv = document.getElementById('current-request');
 let apiKey = "<?php echo esc_attr( get_option('OPENAI_API_KEY') ); ?>";
 if ( ! apiKey ) {
 	apiKey = prompt("Please enter your OpenAI API key:");
+	fetch('/wp-admin/admin-ajax.php?action=set_openai_key', {
+		method: 'POST',
+		body: new URLSearchParams({
+			openai_key: apiKey
+		})
+	});
 }
 
 const fileUploads = [];
