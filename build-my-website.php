@@ -20,7 +20,13 @@ class ChatGPT_Agency_Plugin {
 	public function load_fullscreen_template($template) {
 		global $wp_query;
 		if ( 'build' === $wp_query->get('pagename') ) {
+			add_filter( 'pre_handle_404', '__return_true' );
 			status_header(200);
+			$wp_query->is_404 = false;
+			$wp_query->is_page = true;
+			$wp_query->is_singular = true;
+			$wp_query->set('pagename', 'build');
+
 			return dirname(__FILE__) . '/chat.php';
 		}
 		return $template;

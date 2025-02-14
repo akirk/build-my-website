@@ -10,7 +10,6 @@
 </div>
 
 <script>
-// JavaScript for handling chat functionality and OpenAI API interaction
 const chatArea = document.getElementById('chat-area');
 const userInput = document.getElementById('user-input');
 const sendMessageButton = document.getElementById('send-message');
@@ -25,7 +24,6 @@ if ( ! apiKey ) {
 
 const fileUploads = [];
 <?php
-// get all wordpress attachments
 foreach (get_posts(['post_type' => 'attachment', 'posts_per_page' => -1]) as $attachment) {
 	echo "fileUploads.push(";
 	$file_contents = 'image';
@@ -49,14 +47,12 @@ messages = JSON.parse( localStorage.getItem( 'build-messages') || '[]' ) || [];
 	messages = [];
 }
 function convertFromMarkdownToHTML( markdown ) {
-	// Split into lines for processing
 	const lines = markdown.split('\n');
 	let html = '';
 	let inList = false;
 	let listTag = '';
 
 	lines.forEach(line => {
-		// Trim whitespace from the line
 		line = line.trim();
 
 		if (/^-\s/.test(line)) { // Check for unordered list
@@ -75,26 +71,22 @@ function convertFromMarkdownToHTML( markdown ) {
 			html += `<li>${line.substring(line.indexOf('.') + 2)}</li>`; // Add list item
 			listTag = 'ol';
 		} else {
-			// If we were in a list, close the list
+
 			if (inList) {
 				html += `</${listTag}>`;
 				inList = false;
 			}
-			// Append line to html
+
 			if (line) html += `<p>${line}</p>`;
 		}
 	});
 
-	// Close any remaining list tag at the end
 	if (inList) {
 		html += `</${listTag}>`;
 	}
-	// Convert images
 	html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img alt="$1" src="$2" />');
-	// Convert bold text
 	html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 	html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
-	// Convert italic text
 	html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
 	html = html.replace(/_(.*?)_/g, '<em>$1</em>');
 
@@ -122,7 +114,7 @@ function appendMessage(message, sender, replay = false) {
 			break;
 	}
 	chatArea.appendChild(listItem);
-	setTimeout(function(){chatArea.scrollTop = chatArea.scrollHeight;},1);
+	setTimeout(function(){document.body.scrollTop = document.body.scrollHeight;},1);
 	if ( sender === 'notice' || replay) {
 		return;
 	}
@@ -134,7 +126,6 @@ function appendMessage(message, sender, replay = false) {
 }
 
 if ( messages.length > 1 ) {
-	// strip away tool requests and responses from the end
 	while ( messages.length > 0 && ( messages[messages.length - 1].tool_calls || messages[messages.length - 1].role === 'tool' ) ) {
 		messages.pop();
 	}
@@ -251,7 +242,7 @@ async function processResponse( data ) {
 	let args, response, ajaxdata;
 
 	if (data.choices && data.choices.length > 0) {
-		currentRequestDiv.textContent = 'Received: ' + data.choices[0].message.content || 'Tool call requests';
+		currentRequestDiv.textContent = (new Date).toLocaleTimeString() + ' Received: ' + data.choices[0].message.content || 'Tool call requests';
 
 
 		if ( data.choices[0].message.tool_calls ) {
@@ -422,7 +413,7 @@ function fetchOpenAIResponse() {
 			},
 		}
 	];
-	currentRequestDiv.textContent = 'Sending: ' + ( messages[messages.length - 1].content || 'Tool call responses ' +messages[messages.length - 1].tool_call_id );
+	currentRequestDiv.textContent = (new Date).toLocaleTimeString() + ' Sending: ' + ( messages[messages.length - 1].content || 'Tool call responses ' +messages[messages.length - 1].tool_call_id );
 
 
 	fetch('https://api.openai.com/v1/chat/completions', {
@@ -452,7 +443,7 @@ function fetchOpenAIResponse() {
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		height: 100vh;
+		padding-bottom: 4em;
 		background-color: #f9f9f9;
 		position: relative;
 	}
@@ -460,8 +451,7 @@ function fetchOpenAIResponse() {
 	#chat-area {
 		list-style-type: none;
 		padding: .5em;
-		height: 40%;
-		overflow-y: auto;
+		min-height: 40%;
 		border: 1px solid #ccc;
 		width: 60%;
 		margin-bottom: 10px;
