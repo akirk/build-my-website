@@ -99,7 +99,7 @@ class ChatGPT_Agency_Plugin {
 			require $theme->get_stylesheet_directory() . '/patterns/' . $slug;
 			$patterns[ $slug ] = ob_get_clean();
 		}
-		return $patterns;
+		wp_send_json_success($patterns);
 	}
 
 	public function wp_insert_post() {

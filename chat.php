@@ -392,7 +392,7 @@ async function processResponse( data ) {
 					messages.push({
 						role: 'tool',
 						tool_call_id: toolCall.id,
-						content: JSON.stringify(ajaxdata),
+						content: JSON.stringify(ajaxdata.data),
 					});
 					break;
 				case 'wp_insert_post':
