@@ -531,6 +531,7 @@ function fetchOpenAIResponse() {
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
+		padding-top: 2em;
 		padding-bottom: 4em;
 		background-color: #f9f9f9;
 		position: relative;
