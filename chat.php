@@ -41,6 +41,8 @@ foreach (get_posts(['post_type' => 'attachment', 'posts_per_page' => -1]) as $at
 	$file_contents = 'image';
 	if ( 'text/plain' === $attachment->post_mime_type ) {
 		$file_contents = file_get_contents(get_attached_file($attachment->ID));
+	} else {
+		$file_contents = 'data:' . $attachment->post_mime_type . ';base64,' . base64_encode(file_get_contents(get_attached_file($attachment->ID)));
 	}
 	echo json_encode([
 		'id' => $attachment->ID,
@@ -102,7 +104,14 @@ function convertFromMarkdownToHTML( markdown ) {
 	html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
 	html = html.replace(/_(.*?)_/g, '<em>$1</em>');
 
-	return html.trim(); // Trim any extra whitespace before returning
+	html = html.replace(/# (.*?)(?:\n|$)/g, '<h1>$1</h1>');
+	html = html.replace(/## (.*?)(?:\n|$)/g, '<h2>$1</h2>');
+	html = html.replace(/### (.*?)(?:\n|$)/g, '<h3>$1</h3>');
+	html = html.replace(/#### (.*?)(?:\n|$)/g, '<h4>$1</h4>');
+	html = html.replace(/##### (.*?)(?:\n|$)/g, '<h5>$1</h5>');
+	html = html.replace(/###### (.*?)(?:\n|$)/g, '<h6>$1</h6>');
+
+	return html.trim();
 }
 
 function appendMessage(message, sender, replay = false) {
@@ -208,18 +217,19 @@ function handleFileUpload(files) {
 	for (let i = 0; i < files.length; i++) {
 		formData.append('files[]', files[i]);
 		const reader = new FileReader();
-			let contents = reader.readAsText(files[i]); // Read file as text
-			// If the files are images, you can use readAsDataURL
-			if (files[i].type.match('image.*')) {
-				// contents = reader.readAsDataURL(files[i]);
-			}
-
-		fileUploads.push({
-			name: files[i].name,
-			type: files[i].type,
-			contents
-		});
-
+		reader.onload = function( file ) {
+			const contents = file.target.result;
+			fileUploads.push({
+				name: files[i].name,
+				type: files[i].type,
+				contents
+			});
+		};
+		if ( files[i].type === 'text/plain' ) {
+			reader.readAsText(files[i]);
+		} else {
+			reader.readAsDataURL(files[i]);
+		}
 	}
 
 	fetch('/wp-admin/admin-ajax.php?action=upload_files', {
