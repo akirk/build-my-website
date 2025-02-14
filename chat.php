@@ -60,59 +60,133 @@ messages = JSON.parse( localStorage.getItem( 'build-messages') || '[]' ) || [];
 } catch (e) {
 	messages = [];
 }
-function convertFromMarkdownToHTML( markdown ) {
-	const lines = markdown.split('\n');
-	let html = '';
-	let inList = false;
-	let listTag = '';
+/**
+ * drawdown.js
+ * (c) Adam Leggett
+ */
+;function dragdown(src) {
 
-	lines.forEach(line => {
-		line = line.trim();
+    var rx_lt = /</g;
+    var rx_gt = />/g;
+    var rx_space = /\t|\r|\uf8ff/g;
+    var rx_escape = /\\([\\\|`*_{}\[\]()#+\-~])/g;
+    var rx_hr = /^([*\-=_] *){3,}$/gm;
+    var rx_blockquote = /\n *&gt; *([^]*?)(?=(\n|$){2})/g;
+    var rx_list = /\n( *)(?:[*\-+]|((\d+)|([a-z])|[A-Z])[.)]) +([^]*?)(?=(\n|$){2})/g;
+    var rx_listjoin = /<\/(ol|ul)>\n\n<\1>/g;
+    var rx_highlight = /(^|[^A-Za-z\d\\])(([*_])|(~)|(\^)|(--)|(\+\+)|`)(\2?)([^<]*?)\2\8(?!\2)(?=\W|_|$)/g;
+    var rx_code = /\n((```|~~~).*\n?([^]*?)\n?\2|((    .*?\n)+))/g;
+    var rx_link = /((!?)\[(.*?)\]\((.*?)( ".*")?\)|\\([\\`*_{}\[\]()#+\-.!~]))/g;
+    var rx_table = /\n(( *\|.*?\| *\n)+)/g;
+    var rx_thead = /^.*\n( *\|( *\:?-+\:?-+\:? *\|)* *\n|)/;
+    var rx_row = /.*\n/g;
+    var rx_cell = /\||(.*?[^\\])\|/g;
+    var rx_heading = /(?=^|>|\n)([>\s]*?)(#{1,6}) (.*?)( #*)? *(?=\n|$)/g;
+    var rx_para = /(?=^|>|\n)\s*\n+([^<]+?)\n+\s*(?=\n|<|$)/g;
+    var rx_stash = /-\d+\uf8ff/g;
 
-		if (/^-\s/.test(line)) { // Check for unordered list
-			if (!inList) {
-				html += '<ul>'; // Start unordered list
-				inList = true;
-			}
-			html += `<li>${line.substring(2)}</li>`; // Add list item
-			listTag = 'ul';
-		} else if (/^\d+\.\s/.test(line)) { // Check for ordered list
-			if (!inList || listTag !== 'ol') {
-				if (inList) html += `</${listTag}>`; // Close previous list
-				html += '<ol>'; // Start ordered list
-				inList = true;
-			}
-			html += `<li>${line.substring(line.indexOf('.') + 2)}</li>`; // Add list item
-			listTag = 'ol';
-		} else {
+    function replace(rex, fn) {
+        src = src.replace(rex, fn);
+    }
 
-			if (inList) {
-				html += `</${listTag}>`;
-				inList = false;
-			}
+    function element(tag, content) {
+        return '<' + tag + '>' + content + '</' + tag + '>';
+    }
 
-			if (line) html += `<p>${line}</p>`;
-		}
-	});
+    function blockquote(src) {
+        return src.replace(rx_blockquote, function(all, content) {
+            return element('blockquote', blockquote(highlight(content.replace(/^ *&gt; */gm, ''))));
+        });
+    }
 
-	if (inList) {
-		html += `</${listTag}>`;
-	}
-	html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img alt="$1" src="$2" />');
-	html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-	html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
-	html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-	html = html.replace(/_(.*?)_/g, '<em>$1</em>');
+    function list(src) {
+        return src.replace(rx_list, function(all, ind, ol, num, low, content) {
+            var entry = element('li', highlight(content.split(
+                RegExp('\n ?' + ind + '(?:(?:\\d+|[a-zA-Z])[.)]|[*\\-+]) +', 'g')).map(list).join('</li><li>')));
 
-	html = html.replace(/# (.*?)(?:\n|$)/g, '<h1>$1</h1>');
-	html = html.replace(/## (.*?)(?:\n|$)/g, '<h2>$1</h2>');
-	html = html.replace(/### (.*?)(?:\n|$)/g, '<h3>$1</h3>');
-	html = html.replace(/#### (.*?)(?:\n|$)/g, '<h4>$1</h4>');
-	html = html.replace(/##### (.*?)(?:\n|$)/g, '<h5>$1</h5>');
-	html = html.replace(/###### (.*?)(?:\n|$)/g, '<h6>$1</h6>');
+            return '\n' + (ol
+                ? '<ol start="' + (num
+                    ? ol + '">'
+                    : parseInt(ol,36) - 9 + '" style="list-style-type:' + (low ? 'low' : 'upp') + 'er-alpha">') + entry + '</ol>'
+                : element('ul', entry));
+        });
+    }
 
-	return html.trim();
-}
+    function highlight(src) {
+        return src.replace(rx_highlight, function(all, _, p1, emp, sub, sup, small, big, p2, content) {
+            return _ + element(
+                  emp ? (p2 ? 'strong' : 'em')
+                : sub ? (p2 ? 's' : 'sub')
+                : sup ? 'sup'
+                : small ? 'small'
+                : big ? 'big'
+                : 'code',
+                highlight(content));
+        });
+    }
+
+    function unesc(str) {
+        return str.replace(rx_escape, '$1');
+    }
+
+    var stash = [];
+    var si = 0;
+
+    src = '\n' + src + '\n';
+
+    replace(rx_lt, '&lt;');
+    replace(rx_gt, '&gt;');
+    replace(rx_space, '  ');
+
+    // blockquote
+    src = blockquote(src);
+
+    // horizontal rule
+    replace(rx_hr, '<hr/>');
+
+    // list
+    src = list(src);
+    replace(rx_listjoin, '');
+
+    // code
+    replace(rx_code, function(all, p1, p2, p3, p4) {
+        stash[--si] = element('pre', element('code', p3||p4.replace(/^    /gm, '')));
+        return si + '\uf8ff';
+    });
+
+    // link or image
+    replace(rx_link, function(all, p1, p2, p3, p4, p5, p6) {
+        stash[--si] = p4
+            ? p2
+                ? '<img src="' + p4 + '" alt="' + p3 + '"/>'
+                : '<a href="' + p4 + '">' + unesc(highlight(p3)) + '</a>'
+            : p6;
+        return si + '\uf8ff';
+    });
+
+    // table
+    replace(rx_table, function(all, table) {
+        var sep = table.match(rx_thead)[1];
+        return '\n' + element('table',
+            table.replace(rx_row, function(row, ri) {
+                return row == sep ? '' : element('tr', row.replace(rx_cell, function(all, cell, ci) {
+                    return ci ? element(sep && !ri ? 'th' : 'td', unesc(highlight(cell || ''))) : ''
+                }))
+            })
+        )
+    });
+
+    // heading
+    replace(rx_heading, function(all, _, p1, p2) { return _ + element('h' + p1.length, unesc(highlight(p2))) });
+
+    // paragraph
+    replace(rx_para, function(all, content) { return element('p', unesc(highlight(content))) });
+
+    // stash
+    replace(rx_stash, function(all) { return stash[parseInt(all)] });
+
+    return src.trim();
+};
 
 function appendMessage(message, sender, replay = false) {
 	if ( ! message ) {
@@ -121,7 +195,7 @@ function appendMessage(message, sender, replay = false) {
 	const listItem = document.createElement('li');
 	switch ( sender ) {
 		case 'assistant':
-			listItem.innerHTML = convertFromMarkdownToHTML( message );
+			listItem.innerHTML = dragdown( message );
 			listItem.className = 'assistant';
 			break;
 		case 'user':
@@ -160,7 +234,7 @@ if ( messages.length > 1 ) {
 } else {
 	messages.push({
 		role: 'system',
-		content: "You are an AI that helps a user to build their website. For this you need to ask them about the topic of their website and gather all necessary information, such as which pages should be created. Please also inquire all meta information that is needed such as name, and potentially address. If the user doesn't give it to you after you ask them, please come back to it later so that you have it before the conversation is ended. The user has the option to drag documents and images to this window, so please in the course of the conversation prompt them to do that. You're not involved with choosing a domain or address for the site.",
+		content: "You are an AI that helps a user to build their website. For this you need to ask them about the topic of their website and gather all necessary information, such as which pages should be created. Please also inquire all meta information that is needed such as name, and potentially address. If the user doesn't give it to you after you ask them, please come back to it later so that you have it before the conversation is ended. The user has the option to drag documents and images to this window, so please in the course of the conversation prompt them to do that. You're not involved with choosing a domain or address for the site but for linking you can just use a relative URL to this domain's root.",
 	} );
 	// Start conversation
 	appendMessage( "Hi there! I've been tasked to help you with creating a website. Could you tell me a little bit about you and what you'd like to achieve with this website?", 'assistant' );
