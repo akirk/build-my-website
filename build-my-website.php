@@ -15,6 +15,7 @@ class ChatGPT_Agency_Plugin {
 		add_action('wp_ajax_get_gutenberg_patterns', array( $this, 'get_gutenberg_patterns' ) );
 		add_action('wp_ajax_get_gutenberg_pattern_html', array( $this, 'get_gutenberg_pattern_html' ) );
 		add_action('wp_ajax_wp_insert_post', array( $this, 'wp_insert_post' ) );
+		add_action('wp_ajax_wp_update_post', array( $this, 'wp_update_post' ) );
 		add_action('wp_ajax_switch_theme', array( $this, 'switch_theme' ) );
 		add_action('wp_ajax_set_openai_key', array( $this, 'set_openai_key' ) );
 		add_action('admin_bar_menu', array( $this, 'add_to_admin_bar' ), 1000);
@@ -137,7 +138,23 @@ class ChatGPT_Agency_Plugin {
 		);
 		$post_id = wp_insert_post($post);
 		if ($post_id) {
-			wp_send_json_success($post_id);
+			wp_send_json_success(array(
+				'ID' => $post_id,
+			));
+		}
+		wp_send_json_error();
+	}
+	public function wp_update_post() {
+		$post = array(
+			'ID' => $_POST['post_id'],
+			'post_title' => $_POST['post_title'],
+			'post_content' => $_POST['post_content'],
+		);
+		$post_id = wp_update_post($post);
+		if ($post_id) {
+			wp_send_json_success(array(
+				'ID' => $post_id,
+			));
 		}
 		wp_send_json_error();
 	}

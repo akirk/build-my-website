@@ -418,6 +418,7 @@ async function processResponse( data ) {
 					});
 					break;
 				case 'wp_insert_post':
+				case 'wp_update_post':
 					args = JSON.parse(toolCall.function.arguments);
 					let formData = new FormData();
 					for ( let j in args ) {
@@ -433,7 +434,7 @@ async function processResponse( data ) {
 					messages.push({
 						role: 'tool',
 						tool_call_id: toolCall.id,
-						content: JSON.stringify(ajaxdata),
+						content: JSON.stringify(ajaxdata.data),
 					});
 					break;
 				}
@@ -479,6 +480,23 @@ function fetchOpenAIResponse() {
 			function: {
 				name: 'get_available_themes_with_thumbnails',
 				description: 'Get a list of available themes with thumbnails.'
+			}
+		},
+		{
+			type: 'function',
+			function: {
+				name: 'switch_theme',
+				description: 'Switch the WordPress site to this theme.',
+				parameters:{
+					type: "object",
+					properties: {
+						theme: {
+							type: 'string',
+							description: 'The theme slug to switch to.'
+						}
+					},
+					required: ['theme']
+				}
 			}
 		},
 		{
@@ -539,7 +557,34 @@ function fetchOpenAIResponse() {
 							type: 'string',
 							description: 'Post Type'
 						}
-					}
+					},
+					required: ['post_title','post_content','post_type']
+				}
+			},
+		},
+		{
+			type: 'function',
+			function: {
+				name: 'wp_update_post',
+				description: 'Update a WordPress post',
+				parameters:{
+					type: "object",
+					properties: {
+						post_id: {
+							type: 'string',
+							description: 'Post id'
+						},
+						post_title: {
+							type: 'string',
+							description: 'Post title'
+						},
+						post_content: {
+							type: 'string',
+							description: 'Post Content'
+						}
+					},
+					required: ['post_id','post_title','post_content']
+
 				}
 			},
 		}
